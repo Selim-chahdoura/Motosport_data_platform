@@ -1,0 +1,9 @@
+requests
+pandas
+pyspark
+python-dotenv
+fastf1
+mlflow
+scikit-learn
+fastapi
+uvicorn

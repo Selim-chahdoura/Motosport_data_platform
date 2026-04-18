@@ -1,0 +1,7 @@
+.venv
+.git
+__pycache__
+*.pyc
+notebooks
+data_lake/bronze
+spark-warehouse
