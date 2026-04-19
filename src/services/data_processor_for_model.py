@@ -97,7 +97,6 @@ class DataProcessor:
 def main():
     processor = DataProcessor()
 
-    # Fake API input for testing
     test_input = SimpleNamespace(
         season=2024,
         round=5,
