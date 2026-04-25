@@ -3,17 +3,23 @@ from pyspark.sql.functions import avg, min, sum, count, first
 
 
 class FastF1GoldConstructorRaceSummaryPipeline:
-    def __init__(self, spark: SparkSession, season: int):
+    def __init__(
+        self,
+        spark: SparkSession,
+        season: int,
+        gold_base_dir: str = "abfss://gold@motorsportdatalake.dfs.core.windows.net/fastf1",
+    ):
         self.spark = spark
         self.season = season
-        self.input_path = f"data_lake/gold/fastf1/season_{season}/gold_driver_race_summary"
-        self.output_path = f"data_lake/gold/fastf1/season_{season}/gold_constructor_race_summary"
+        base = gold_base_dir.rstrip("/")
+        self.input_path = f"{base}/season_{season}/gold_driver_race_summary"
+        self.output_path = f"{base}/season_{season}/gold_constructor_race_summary"
 
     def read_data(self) -> DataFrame:
-        return self.spark.read.parquet(self.input_path)
+        return self.spark.read.format("delta").load(self.input_path)
 
     def build_constructor_race_summary(self, df: DataFrame) -> DataFrame:
-        summary = df.groupBy(
+        return df.groupBy(
             "season",
             "race",
             "team_name"
@@ -31,25 +37,11 @@ class FastF1GoldConstructorRaceSummaryPipeline:
             sum("dnf_flag").alias("dnf_count")
         )
 
-        return summary
-
     def save_data(self, df: DataFrame) -> None:
-        df.write.mode("overwrite").parquet(self.output_path)
+        df.write.format("delta").mode("overwrite").save(self.output_path)
 
     def run(self) -> None:
         df = self.read_data()
         gold_df = self.build_constructor_race_summary(df)
         self.save_data(gold_df)
-        print(gold_df.show(5))
         print(f"Saved Gold table: {self.output_path}")
-
-
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("FastF1 Gold Constructor Race Summary") \
-        .getOrCreate()
-
-    pipeline = FastF1GoldConstructorRaceSummaryPipeline(spark, season=2023)
-    pipeline.run()
-
-    spark.stop()

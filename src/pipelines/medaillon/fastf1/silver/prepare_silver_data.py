@@ -5,6 +5,7 @@ from pyspark.sql import functions as F
 class PrepareSilverData:
     def prepare(self, df: DataFrame) -> DataFrame:
         df = self._rename_columns(df)
+        df = self._convert_timedelta_columns_to_ms(df)
         df = self._cast_columns(df)
         df = self._handle_nulls(df)
         df = self._add_basic_flags(df)
@@ -36,24 +37,61 @@ class PrepareSilverData:
 
         return df
 
+    def _timedelta_string_to_ms_expr(self, col_name: str):
+        col_str = F.trim(F.col(col_name).cast("string"))
+
+        days = F.regexp_extract(col_str, r"(\d+)\s+days?", 1)
+        hhmmss = F.regexp_extract(col_str, r"(\d{2}:\d{2}:\d{2}(?:\.\d+)?)", 1)
+
+        hours = F.regexp_extract(hhmmss, r"^(\d{2})", 1)
+        minutes = F.regexp_extract(hhmmss, r"^\d{2}:(\d{2})", 1)
+        seconds = F.regexp_extract(hhmmss, r"^\d{2}:\d{2}:(\d{2}(?:\.\d+)?)$", 1)
+
+        total_ms = (
+            F.coalesce(days.cast("double"), F.lit(0.0)) * F.lit(86400000.0) +
+            F.coalesce(hours.cast("double"), F.lit(0.0)) * F.lit(3600000.0) +
+            F.coalesce(minutes.cast("double"), F.lit(0.0)) * F.lit(60000.0) +
+            F.coalesce(seconds.cast("double"), F.lit(0.0)) * F.lit(1000.0)
+        )
+
+        return (
+            F.when(F.col(col_name).isNull(), None)
+             .when(col_str == "", None)
+             .when(col_str.rlike(r"^\d+(\.\d+)?$"), col_str.cast("double"))
+             .when(col_str.rlike(r"^\d+\s+days?\s+\d{2}:\d{2}:\d{2}(\.\d+)?$"), total_ms)
+             .when(col_str.rlike(r"^\d{2}:\d{2}:\d{2}(\.\d+)?$"), total_ms)
+             .otherwise(None)
+        )
+
+    def _convert_timedelta_columns_to_ms(self, df: DataFrame) -> DataFrame:
+        timedelta_cols = [
+            "lap_time_ms",
+            "sector1_time_ms",
+            "sector2_time_ms",
+            "sector3_time_ms",
+            "pit_in_time_ms",
+            "pit_out_time_ms",
+            "lap_start_time_ms",
+            "q1",
+            "q2",
+            "q3",
+            "time",
+        ]
+
+        for col_name in timedelta_cols:
+            if col_name in df.columns:
+                df = df.withColumn(col_name, self._timedelta_string_to_ms_expr(col_name))
+
+        return df
+
     def _safe_cast_int(self, df: DataFrame, col_name: str) -> DataFrame:
         if col_name in df.columns:
-            df = df.withColumn(
-                col_name,
-                F.when(F.isnan(F.col(col_name)), None)
-                 .otherwise(F.col(col_name))
-                 .cast("int")
-            )
+            df = df.withColumn(col_name, F.col(col_name).cast("int"))
         return df
 
     def _safe_cast_double(self, df: DataFrame, col_name: str) -> DataFrame:
         if col_name in df.columns:
-            df = df.withColumn(
-                col_name,
-                F.when(F.isnan(F.col(col_name)), None)
-                 .otherwise(F.col(col_name))
-                 .cast("double")
-            )
+            df = df.withColumn(col_name, F.expr(f"try_cast({col_name} as double)"))
         return df
 
     def _cast_columns(self, df: DataFrame) -> DataFrame:

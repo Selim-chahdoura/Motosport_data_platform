@@ -1,25 +1,33 @@
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import avg, min, max, count, sum, when, col, first
+from pyspark.sql.functions import avg, min, count, sum, when, col, first
 
 
 class FastF1GoldDriverRaceSummaryPipeline:
-    def __init__(self, spark: SparkSession, season: int):
+    def __init__(
+        self,
+        spark: SparkSession,
+        season: int,
+        silver_base_dir: str = "abfss://silver@motorsportdatalake.dfs.core.windows.net/fastf1",
+        gold_base_dir: str = "abfss://gold@motorsportdatalake.dfs.core.windows.net/fastf1",
+    ):
         self.spark = spark
         self.season = season
-        self.input_path = f"data_lake/silver/fastf1/season_{season}/silver_fastf1_laps.parquet"
-        self.output_path = f"data_lake/gold/fastf1/season_{season}/gold_driver_race_summary"
+        self.input_path = f"{silver_base_dir.rstrip('/')}/season_{season}"
+        self.output_path = f"{gold_base_dir.rstrip('/')}/season_{season}/gold_driver_race_summary"
 
     def read_data(self) -> DataFrame:
-        return self.spark.read.parquet(self.input_path)
+        return self.spark.read.format("delta").load(self.input_path)
 
     def build_driver_race_summary(self, df: DataFrame) -> DataFrame:
+        race_date_col = "lapstartdate" if "lapstartdate" in df.columns else "lap_start_time_ms"
+
         summary = df.groupBy(
             "season",
             "race",
             "driver",
             "team_name"
         ).agg(
-            min("lapstartdate").alias("race_date"),
+            min(race_date_col).alias("race_date"),
             count("*").alias("laps_completed"),
             avg("lap_time_ms").alias("avg_lap_time_ms"),
             min("lap_time_ms").alias("best_lap_time_ms"),
@@ -52,21 +60,10 @@ class FastF1GoldDriverRaceSummaryPipeline:
         return summary
 
     def save_data(self, df: DataFrame) -> None:
-        df.write.mode("overwrite").parquet(self.output_path)
+        df.write.format("delta").mode("overwrite").save(self.output_path)
 
     def run(self) -> None:
         df = self.read_data()
         gold_df = self.build_driver_race_summary(df)
         self.save_data(gold_df)
         print(f"Saved Gold table: {self.output_path}")
-
-
-if __name__ == "__main__":
-    spark = SparkSession.builder \
-        .appName("FastF1 Gold Driver Race Summary") \
-        .getOrCreate()
-
-    pipeline = FastF1GoldDriverRaceSummaryPipeline(spark, season=2023)
-    pipeline.run()
-
-    spark.stop()

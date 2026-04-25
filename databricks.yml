@@ -1,0 +1,87 @@
+bundle:
+  name: Motosport_Data_Platform
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405607455369278.18.azuredatabricks.net
+
+resources:
+  jobs:
+    fastf1_raw_ingestion_job:
+      name: fastf1_medallion_pipeline_job
+
+      tasks:
+        - task_key: raw_ingestion
+          spark_python_task:
+            python_file: src/ingestion/fastf1_dataset_ingestion/run_fastf1_raw_ingestion.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+          libraries:
+            - pypi:
+                package: fastf1
+            - pypi:
+                package: pandas
+
+        - task_key: bronze
+          depends_on:
+            - task_key: raw_ingestion
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/bronze/run_fastf1_bronze.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+          libraries:
+            - pypi:
+                package: pandas
+          
+        - task_key: silver
+          depends_on:
+            - task_key: bronze
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/silver/run_fastf1_silver.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+          libraries:
+            - pypi:
+                package: pandas
+        - task_key: gold_driver_race_summary
+          depends_on:
+            - task_key: silver
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_driver_race_summary.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+
+        - task_key: gold_constructor_race_summary
+          depends_on:
+            - task_key: gold_driver_race_summary
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_constructor_race_summary.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+
+        - task_key: gold_driver_recent_form
+          depends_on:
+            - task_key: gold_driver_race_summary
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_driver_recent_form.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+
+        - task_key: gold_constructor_recent_form
+          depends_on:
+            - task_key: gold_constructor_race_summary
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_constructor_recent_form.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+
+        - task_key: gold_prediction_dataset
+          depends_on:
+            - task_key: gold_driver_recent_form
+            - task_key: gold_constructor_recent_form
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_prediction_dataset.py
+          existing_cluster_id: 0422-164507-vjh0f8cg
+
+        - task_key: gold_lap_prediction_dataset
+          depends_on:
+            - task_key: silver
+          spark_python_task:
+            python_file: src/pipelines/medaillon/fastf1/gold/run_fastf1_gold_lap_prediction_dataset.py
+          existing_cluster_id: 0422-164507-vjh0f8cg

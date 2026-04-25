@@ -1,4 +1,4 @@
-# Python
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,15 +7,13 @@ venv/
 env/
 
 .ipynb_checkpoints/
+notebooks/
 
-structure.txt
 data_lake/
-
 cache/
-data_lake/cache/
 fastf1_http_cache.sqlite
-
 mlruns/
+
 mlflow.db
 notebooks/mlartifacts/
 notebooks/mlflow.db
@@ -25,9 +23,25 @@ models/*.joblib
 *.pkl
 *.joblib
 
+spark-warehouse/
 *.crc
 _SUCCESS
 .part-*.crc
 
+
+.bundle/
+
+.databricks/
+
+
+.vscode/
+.idea/
+
+
+.env
+
 .DS_Store
 Thumbs.db
+
+*.log
+structure.txt

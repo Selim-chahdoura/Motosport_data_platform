@@ -5,7 +5,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 sys.path.append(str(Path(__file__).resolve().parents[5]))
-
+ 
 from src.services.spark_session import get_spark_session
 
 
@@ -47,39 +47,3 @@ class FastF1SilverJoiner:
             on=["season", "race", "driver"],
             how="left",
         )
-    
-def main():
-    season = 2023
-    race = "australian"
-
-    spark = get_spark_session("TestJoiner")
-
-    base_path = Path("data_lake/bronze/fastf1") / f"season_{season}" / f"race_{race}"
-
-    laps_path = base_path / "bronze_fastf1_laps.parquet"
-    lap_weather_path = base_path / "bronze_fastf1_lap_weather.parquet"
-    results_path = base_path / "bronze_fastf1_results.parquet"
-
-    # Load data
-    laps_df = spark.read.parquet(str(laps_path))
-    lap_weather_df = spark.read.parquet(str(lap_weather_path))
-    results_df = spark.read.parquet(str(results_path))
-
-    print("\n=== BEFORE JOIN ===")
-    print("laps:", laps_df.count(), "rows")
-    print("lap_weather:", lap_weather_df.count(), "rows")
-    print("results:", results_df.count(), "rows")
-
-    # Fix column name for join
-    laps_df = laps_df.withColumnRenamed("lapnumber", "lap_number")
-
-    # Join
-    joiner = FastF1SilverJoiner()
-
-    df = joiner.join_lap_weather(laps_df, lap_weather_df)
-    df = joiner.join_results(df, results_df)
-
-    print("columns of joined df:", df.columns)
-
-if __name__ == "__main__":
-    main()
