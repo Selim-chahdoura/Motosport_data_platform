@@ -1,137 +1,140 @@
 # 🏎️ Motorsport Data Platform
 
-##  What this project is about
+## What this project is about  
 
-This project is an end-to-end **Data Engineering + Machine Learning pipeline** built on top of FastF1 data.
+This project is an end-to-end Data Engineering and Machine Learning platform built on top of FastF1 data and deployed on Databricks with Azure Data Lake.
 
-The main idea is simple:
-
- **Predict a driver’s lap time right when a new lap starts**, using only what is known up to that moment.
+The objective is to predict a driver’s lap time at the start of a lap, using only the information available at that moment. The focus is on building a realistic, production-like pipeline rather than just a standalone model.
 
 ---
 
-##  Data Architecture
+## Architecture  
 
-The project follows a **Medallion Architecture (Bronze → Silver → Gold)** to keep things clean and scalable.
+The platform follows a Medallion Architecture (Bronze → Silver → Gold) to ensure a clear separation between raw data, cleaned data, and analytical datasets.
 
-### 🥉 Bronze
-- Raw FastF1 data as it comes from the API  
-- Stored without transformation  
-- Used for reproducibility  
+A Databricks workflow orchestrates the full pipeline from ingestion to feature generation.
+![Databricks Pipeline](images/databricks_pipeline.png)
+### Bronze  
+- Data ingested directly from the FastF1 API  
+- Stored in Azure Data Lake in Delta format  
+- Minimal transformation (normalization and metadata)  
+- Partitioned by season and race  
 
----
-
-### 🥈 Silver
+### Silver  
 - Cleaned and structured lap-level dataset  
-- One row = **one driver lap**  
-- Fixed data types, removed inconsistencies  
+- Joins between laps, lap weather, and results  
+- Consistent schema and data types  
+- One row represents one driver lap  
 
----
+### Gold  
 
-### 🥇 Gold
-
-####  Analytical Gold
+**Analytical Gold**  
 - Driver and constructor race summaries  
-- Used for exploration and performance analysis  
+- Used for analysis and exploration  
 
-####  ML Gold (main focus)
-- Final dataset for training the model  
-
- One row = **driver at lap L**  
- Target = **lap time of that lap**
-
----
-
-##  Machine Learning Problem
-
-At the start of a lap, we want to answer:
-
-> **"How fast will this lap be?"**
+**ML Gold (core dataset)**  
+- Final dataset used for modeling  
+- One row represents a driver at lap L  
+- Target is the lap time of that lap  
 
 ---
 
-##  Features used
+## Data Pipeline (Databricks)
 
-###  Previous laps (most important)
-- `last_lap_time_ms`  
-- `avg_lap_time_last_2`  
-- `avg_lap_time_last_3`  
+The entire pipeline is executed as a Databricks job:
 
-###  Tyre & race context
-- `compound`  
-- `tyre_life`  
-- `stint`  
-- `fresh_tyre`  
+- Raw ingestion from FastF1  
+- Bronze transformation  
+- Silver data processing  
+- Gold dataset generation  
 
-###  Track conditions
-- `is_green`  
-- `is_yellow`  
-- `is_safety_car`  
-- `is_vsc`  
-- `is_red_flag`  
+Data is stored in Azure Data Lake using Delta tables.
 
-###  Weather
-- `track_temp`  
-- `air_temp`  
-- `humidity`  
-- `wind_speed`  
-- `pressure`  
+The ingestion handles API limitations through caching and is designed to process multiple seasons and races in a scalable way.
 
 ---
 
-##  Data Leakage
+## Machine Learning Problem  
+
+The goal is to estimate lap time at the moment a new lap starts.
+
+This is a time-series regression problem where only historical and current context information can be used.
+
+---
+
+## Features  
+
+**Previous lap performance**  
+- last_lap_time_ms  
+- avg_lap_time_last_2  
+- avg_lap_time_last_3  
+
+**Tyre and race context**  
+- compound  
+- tyre_life  
+- stint  
+- fresh_tyre  
+
+**Track conditions**  
+- is_green  
+- is_yellow  
+- is_safety_car  
+- is_vsc  
+- is_red_flag  
+
+**Weather**  
+- track_temp  
+- air_temp  
+- humidity  
+- wind_speed  
+- pressure  
+
+---
+
+## Data Leakage  
 
 Special care was taken to avoid data leakage:
 
-- Only **past laps** or **lap-start information** are used  
-- No information from the current lap outcome is used as input  
+- Only past laps and information known at lap start are used  
+- No future or outcome-based data is included  
 
-👉 This ensures the model reflects a realistic real-time scenario
+This ensures that the model reflects a realistic real-time prediction scenario.
 
 ---
 
-##  Current State
+## Current State  
 
 - Full Medallion pipeline implemented  
-- Lap-level dataset ready for ML  
+- Pipeline running end-to-end on Databricks  
+- Data stored in Delta format on Azure Data Lake  
+- Lap-level dataset prepared for machine learning  
 - Time-series feature engineering completed  
+- Gold datasets available for analysis and modeling  
 
 ---
 
-##  Next Steps
+## Next Steps  
 
-- Train regression models:
-  - Linear Regression (baseline)
-  - Random Forest  
-
-- Use **time-based split** (no random split)
-
-- Evaluate performance:
-  - MAE (Mean Absolute Error)
-  - RMSE  
-
+- Train regression models (Linear Regression, Random Forest)  
+- Use time-based data splits  
+- Evaluate performance using MAE and RMSE  
 - Track experiments with MLflow  
-
-- Deploy predictions using FastAPI  
-
----
-
-## 🎯 Goal
-
-Build a system that can estimate lap times in real time based on:
-
-- Driver performance  
-- Tyre condition  
-- Race situation  
-- Track and weather conditions  
+- Deploy predictions through a FastAPI service  
+- Add monitoring and retraining capabilities  
 
 ---
 
-## Why this project
+## Goal  
+
+The goal is to build a system that can estimate lap times in real time based on driver performance, tyre condition, race situation, and environmental factors.
+
+---
+
+## Why this project  
 
 This project demonstrates:
 
-- Strong Data Engineering (Medallion architecture)
-- Time-series feature engineering
-- ML pipeline design with leakage awareness
-- Real-world application in motorsport analytics
+- Building scalable data pipelines using Databricks and Delta Lake  
+- Applying Medallion architecture in a real use case  
+- Designing time-series features with attention to leakage  
+- Structuring an end-to-end pipeline from ingestion to modeling  
