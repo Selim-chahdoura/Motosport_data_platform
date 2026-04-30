@@ -7,7 +7,6 @@ venv/
 env/
 
 .ipynb_checkpoints/
-notebooks/
 
 data_lake/
 cache/
