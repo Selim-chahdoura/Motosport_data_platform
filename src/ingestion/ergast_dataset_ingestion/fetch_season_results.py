@@ -27,7 +27,7 @@ def fetch_one_season_results(season):
 
 
 def fetch_seasons_result():
-    seasons = [2021, 2022, 2023]
+    seasons = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
 
     for season in seasons:
         races = fetch_one_season_results(season)
